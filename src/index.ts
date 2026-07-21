@@ -74,48 +74,50 @@ function scanUserSkills(): DetectedSkill[] {
     }
   }
 
-  // 2. Self-made skills in current workspace
-  const ws = 'E:/95638/Documents/WorkBuddy/Git hub';
-  const selfMade = [
-    { dir: join(ws, 'fe-inspector-mcp', 'skills'), tag: 'fe-inspector' },
-    { dir: join(ws, 'pm-adaptive-skills', 'skills'), tag: 'pm-adaptive' },
-    { dir: join(ws, 'skill-compass'), tag: 'skill-compass' },
+  // 2. Self-made skills in current workspace — scan current directory and ~/.agents
+  const cwd = process.cwd();
+  const scanDirs: { dir: string; label: string }[] = [
+    { dir: join(cwd, 'skills'), label: '当前项目 skills/' },
+    { dir: join(cwd, '.agents'), label: '当前项目 .agents/' },
+    { dir: join(home, '.agents'), label: '~/.agents' },
   ];
 
-  const skipFiles = new Set(['README.md', 'README', 'package.json', 'package-lock.json', 'tsconfig.json', '.gitignore', 'PLAN.md']);
-  const isSkillFile = (name: string): boolean => {
-    if (skipFiles.has(name)) return false;
-    // Must be .md (SKILL or skill files), or .json (skill database), no extension (SKILL)
-    return name.endsWith('.md') || name === 'SKILL' || (name.endsWith('.json') && name.includes('skill'));
-  };
-
-  for (const { dir, tag } of selfMade) {
-    if (!existsSync(dir)) continue;
-    if (statSync(dir).isDirectory()) {
-      for (const file of readdirSync(dir)) {
-        if (!isSkillFile(file)) continue;
-        const filePath = join(dir, file);
-        let content = '';
-        try { content = readFileSync(filePath, 'utf-8').slice(0, 300); } catch {}
-        results.push({
-          name: file.replace(/\.(md|json)$/, ''),
-          source: 'self-made',
-          path: filePath,
-          categories: inferCategories(file + ' ' + content, content),
-          description: content.split('\n').slice(0, 3).join('; ').slice(0, 100),
-        });
+  const seenPaths = new Set<string>();
+  for (const { dir, label } of scanDirs) {
+    if (!existsSync(dir) || seenPaths.has(dir)) continue;
+    seenPaths.add(dir);
+    try {
+      const entries = readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          const skillMd = join(fullPath, 'SKILL.md');
+          if (!existsSync(skillMd)) continue;
+          const content = readFileSync(skillMd, 'utf-8').slice(0, 500);
+          const nm = content.match(/name:\s*(.+)/);
+          const dm = content.match(/description:\s*"(.+?)"/);
+          results.push({
+            name: nm?.[1]?.trim() || entry.name,
+            source: 'self-made',
+            path: fullPath,
+            categories: inferCategories(entry.name + ' ' + content, content),
+            description: dm?.[1] || `Skill（来自 ${label}）`,
+          });
+        } else if (entry.name.endsWith('.md') && entry.name !== 'README.md') {
+          const content = readFileSync(fullPath, 'utf-8').slice(0, 300);
+          if (!content.startsWith('---')) continue;
+          const nm = content.match(/name:\s*(.+)/);
+          const dm = content.match(/description:\s*"(.+?)"/);
+          results.push({
+            name: nm?.[1]?.trim() || entry.name.replace(/\.md$/, ''),
+            source: 'self-made',
+            path: fullPath,
+            categories: inferCategories(entry.name + ' ' + content, content),
+            description: dm?.[1] || `Skill 文件（来自 ${label}）`,
+          });
+        }
       }
-    } else {
-      // Single file (SKILL.md)
-      const content = readFileSync(dir, 'utf-8').slice(0, 300);
-      results.push({
-        name: tag,
-        source: 'self-made',
-        path: dir,
-        categories: inferCategories(tag + ' ' + content, content),
-        description: content.split('\n').slice(0, 3).join('; ').slice(0, 100),
-      });
-    }
+    } catch {}
   }
 
   // 3. Match against knowledge base
