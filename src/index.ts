@@ -1,230 +1,192 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { homedir } from 'os';
 
-// ── Load skill database ──
+// ── Skill knowledge base ──
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const dbPath = join(__dirname, '..', 'skills-index.json');
-const localDbPath = join(__dirname, '..', '..', 'skills-index.json');
 
-let dbPath_ = dbPath;
-if (!existsSync(dbPath_)) dbPath_ = localDbPath;
+function findDb(): string {
+  const candidates = [
+    join(__dirname, '..', 'skills-index.json'),
+    join(__dirname, '..', '..', 'skills-index.json'),
+  ];
+  for (const c of candidates) if (existsSync(c)) return c;
+  return candidates[0];
+}
 
 interface SkillEntry {
-  id: string;
-  name: string;
-  description: string;
-  categories: string[];
-  bestFor: string[];
-  notFor: string[];
-  platform: string;
-  repo: string;
-  strength: string;
-  weakness: string;
+  id: string; name: string; description: string; categories: string[];
+  bestFor: string[]; notFor: string[]; platform: string; repo: string;
+  strength: string; weakness: string;
 }
 
-interface SkillDB {
-  version: string;
-  updated: string;
-  categories: Record<string, string>;
-  skills: SkillEntry[];
-}
+interface SkillDB { version: string; categories: Record<string, string>; skills: SkillEntry[]; }
+const db: SkillDB = existsSync(findDb())
+  ? JSON.parse(readFileSync(findDb(), 'utf-8')) : { version: '0', categories: {}, skills: [] };
 
-const db: SkillDB = JSON.parse(readFileSync(dbPath_, 'utf-8'));
-
-// ── Scenario combos (from SKILL.md) ──
-interface ScenarioCombo {
-  id: string;
-  label: string;
-  description: string;
-  combos: Array<{
-    skillId: string;
-    reason: string;
-    phase: 'before' | 'during' | 'after';
-  }>;
-  gaps: string[];
-}
-
-const scenarios: ScenarioCombo[] = [
-  {
-    id: 'frontend-ui',
-    label: '用AI生成前端页面',
-    description: '生成HTML/CSS页面时需要质量控制和审美检查',
-    combos: [
-      { skillId: 'hallmark', reason: '57条审美规则，防AI模板味', phase: 'during' },
-      { skillId: 'fe-inspector-mcp', reason: '查可访问性+响应式+交互+审美', phase: 'after' },
-      { skillId: 'code-review-graph', reason: '大型项目的代码依赖分析', phase: 'after' },
-    ],
-    gaps: ['没有专门的AI生成文案/内容质量检查Skill'],
-  },
-  {
-    id: 'pm-market-analysis',
-    label: '做产品市场分析',
-    description: '竞品分析、市场研究、产品规划',
-    combos: [
-      { skillId: 'pm-adaptive-skills', reason: '自适应中英文，根据行业选框架', phase: 'during' },
-      { skillId: 'pm-skills', reason: '68个技能全生命周期覆盖（海外PM）', phase: 'during' },
-      { skillId: 'wigolo', reason: '免费联网搜竞品信息和数据', phase: 'before' },
-      { skillId: 'archify', reason: '把分析结果可视化成图', phase: 'after' },
-    ],
-    gaps: ['没有专门的PM数据分析可视化Skill'],
-  },
-  {
-    id: 'content-creation',
-    label: '内容创作与编辑',
-    description: '创作、编辑、排版内容',
-    combos: [
-      { skillId: 'cangjie-skill', reason: '把书/视频/播客蒸馏成可执行技能', phase: 'before' },
-      { skillId: 'video-use', reason: '用Agent剪辑视频', phase: 'during' },
-      { skillId: 'officecli', reason: '最终产出为docx/pptx格式', phase: 'after' },
-    ],
-    gaps: ['没有专门的长文写作质量检测Skill'],
-  },
-  {
-    id: 'job-seeking',
-    label: '求职与职业发展',
-    description: '求职流程自动化',
-    combos: [
-      { skillId: 'ai-job-search', reason: '搜索→定制简历→面试→跟进', phase: 'during' },
-    ],
-    gaps: ['没有中国市场的AI求职Skill'],
-  },
-  {
-    id: 'agent-infra',
-    label: 'Agent基础设施搭建',
-    description: '给Agent扩展能力和安全保障',
-    combos: [
-      { skillId: 'wigolo', reason: '给Agent免费联网能力', phase: 'before' },
-      { skillId: 'omniroute', reason: '多个AI模型统一入口', phase: 'before' },
-      { skillId: 'officecli', reason: '让Agent操作Office文档', phase: 'during' },
-      { skillId: 'destructive-command-guard', reason: '禁止危险shell命令', phase: 'during' },
-      { skillId: 'cognee', reason: 'Agent跨会话长期记忆', phase: 'during' },
-    ],
-    gaps: ['没有专门的多Agent协作编排工具'],
-  },
-];
-
-// ── Matching logic ──
-
-/** Split text into searchable tokens.
- *  - English: split by whitespace
- *  - Chinese: split by common delimiters, then extract meaningful 2-char segments
- */
-function tokenize(text: string): string[] {
-  const tokens: string[] = [];
-  const normalized = text.toLowerCase();
-
-  // Split by common Chinese delimiters
-  const delimiters = /[，。！？、；：""''（）【】《》\s,.;:!?()\[\]{}"'/\\|·]+/;
-  const parts = normalized.split(delimiters).filter(Boolean);
-
-  for (const part of parts) {
-    if (/[a-z]/.test(part)) {
-      // English words - keep as is
-      tokens.push(part);
-      // Also split camelCase
-      tokens.push(...part.split(/(?=[A-Z])/).filter(Boolean));
-    }
-    // Chinese: extract all 2-char and 3-char n-grams
-    const chars = [...part];
-    for (let i = 0; i < chars.length - 1; i++) {
-      tokens.push(chars.slice(i, i + 2).join(''));
-      if (i < chars.length - 2) {
-        tokens.push(chars.slice(i, i + 3).join(''));
-      }
-    }
-    // Also keep single meaningful Chinese chars
-    for (const ch of chars) {
-      if (/[\u4e00-\u9fff]/.test(ch)) {
-        tokens.push(ch);
-      }
-    }
-  }
-
-  return [...new Set(tokens)].filter(Boolean);
-}
-
-const categoryKeywords: Record<string, string[]> = {
-  aesthetic: ['审美', '设计', '好看', '视觉', '样式', 'css', 'ui', 'frontend', '前端', '页面', 'landing', 'landing page'],
-  a11y: ['无障碍', '可访问', 'a11y', 'accessibility', 'alt', '标签'],
-  responsive: ['响应式', '移动', '手机', 'responsive', 'mobile', '屏幕'],
-  interaction: ['交互', 'hover', '点击', '按钮', '表单', 'form', 'button', '交互动效'],
-  'code-quality': ['代码', '质量', '审查', 'review', 'refactor', '重构', '依赖'],
-  'pm-tools': ['产品', '管理', 'pm', '竞品', '分析', '路线图', 'roadmap', '需求', '优先级'],
-  content: ['内容', '创作', '编辑', '写', '文章', '视频', '剪辑', '写作'],
-  'data-analysis': ['数据', '分析', '指标', 'sql', '报表', '统计'],
-  infrastructure: ['基础设施', '工具', '网关', '模型', '部署', '联网', '搜索', 'office', '文档'],
-  knowledge: ['知识', '学习', '记忆', '蒸馏', '笔记'],
-  application: ['应用', '求职', '视频', '剪辑', '自动化'],
-  security: ['安全', '防护', '权限', '合规'],
+const categoryLabels: Record<string, string> = {
+  aesthetic: '审美与视觉', a11y: '可访问性', responsive: '响应式', interaction: '交互',
+  'code-quality': '代码质量', 'pm-tools': '产品管理', content: '内容创作',
+  'data-analysis': '数据分析', infrastructure: '基础设施', knowledge: '知识管理',
+  application: '应用层', security: '安全',
 };
 
-function matchSkill(input: string, skill: SkillEntry): number {
-  const tokens = tokenize(input);
-  let score = 0;
+// ── Scanner ──
 
-  // Check bestFor
-  for (const best of skill.bestFor) {
-    const bestTokens = tokenize(best);
-    for (const t of tokens) {
-      if (bestTokens.some(bt => bt.includes(t) || t.includes(bt))) {
-        score += 10;
-      }
-    }
-  }
-
-  // Check categories
-  for (const cat of skill.categories) {
-    const catTokens = categoryKeywords[cat] || [];
-    for (const t of tokens) {
-      if (catTokens.some(ct => ct.includes(t) || t.includes(ct))) {
-        score += 5;
-      }
-    }
-  }
-
-  // Check description
-  const descTokens = tokenize(skill.description);
-  for (const t of tokens) {
-    if (descTokens.some(dt => dt.includes(t) || t.includes(dt))) {
-      score += 3;
-    }
-  }
-
-  // Penalize notFor matches
-  for (const not of skill.notFor) {
-    const notTokens = tokenize(not);
-    for (const t of tokens) {
-      if (notTokens.some(nt => nt.includes(t) || t.includes(nt))) {
-        score -= 20;
-      }
-    }
-  }
-
-  return Math.max(0, score);
+interface DetectedSkill {
+  name: string;
+  source: 'workbuddy' | 'self-made' | 'git-repo';
+  path: string;
+  knownId?: string;         // Matched ID in knowledge base
+  categories: string[];
+  description: string;
 }
 
-function matchScenario(input: string): ScenarioCombo | null {
-  const tokens = tokenize(input);
-  const scores = scenarios.map(s => {
-    const labelTokens = tokenize(s.label);
-    const descTokens = tokenize(s.description);
-    const comboText = s.combos.map(c => c.reason).join(' ');
-    const allText = labelTokens.join(' ') + ' ' + descTokens.join(' ') + ' ' + comboText + ' ' + s.gaps.join(' ');
-    let score = 0;
-    for (const t of tokens) {
-      if (allText.includes(t)) score += 5;
-      if (s.label.includes(t)) score += 10;
+function scanUserSkills(): DetectedSkill[] {
+  const results: DetectedSkill[] = [];
+  const home = homedir();
+
+  // 1. WorkBuddy installed skills
+  const wbDir = join(home, '.workbuddy', 'skills');
+  if (existsSync(wbDir)) {
+    for (const entry of readdirSync(wbDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const skillDir = join(wbDir, entry.name);
+      const skillMd = join(skillDir, 'SKILL.md');
+      let description = '';
+      if (existsSync(skillMd)) {
+        const content = readFileSync(skillMd, 'utf-8').slice(0, 500);
+        const descMatch = content.match(/description:\s*"(.+?)"/);
+        if (descMatch) description = descMatch[1];
+      }
+      results.push({
+        name: entry.name,
+        source: 'workbuddy',
+        path: skillDir,
+        categories: inferCategories(entry.name, description),
+        description: description || 'WorkBuddy 内置 Skill',
+      });
     }
-    return { scenario: s, score };
+  }
+
+  // 2. Self-made skills in current workspace
+  const ws = 'E:/95638/Documents/WorkBuddy/Git hub';
+  const selfMade = [
+    { dir: join(ws, 'fe-inspector-mcp', 'skills'), tag: 'fe-inspector' },
+    { dir: join(ws, 'pm-adaptive-skills', 'skills'), tag: 'pm-adaptive' },
+    { dir: join(ws, 'skill-compass'), tag: 'skill-compass' },
+  ];
+
+  const skipFiles = new Set(['README.md', 'README', 'package.json', 'package-lock.json', 'tsconfig.json', '.gitignore', 'PLAN.md']);
+  const isSkillFile = (name: string): boolean => {
+    if (skipFiles.has(name)) return false;
+    // Must be .md (SKILL or skill files), or .json (skill database), no extension (SKILL)
+    return name.endsWith('.md') || name === 'SKILL' || (name.endsWith('.json') && name.includes('skill'));
+  };
+
+  for (const { dir, tag } of selfMade) {
+    if (!existsSync(dir)) continue;
+    if (statSync(dir).isDirectory()) {
+      for (const file of readdirSync(dir)) {
+        if (!isSkillFile(file)) continue;
+        const filePath = join(dir, file);
+        let content = '';
+        try { content = readFileSync(filePath, 'utf-8').slice(0, 300); } catch {}
+        results.push({
+          name: file.replace(/\.(md|json)$/, ''),
+          source: 'self-made',
+          path: filePath,
+          categories: inferCategories(file + ' ' + content, content),
+          description: content.split('\n').slice(0, 3).join('; ').slice(0, 100),
+        });
+      }
+    } else {
+      // Single file (SKILL.md)
+      const content = readFileSync(dir, 'utf-8').slice(0, 300);
+      results.push({
+        name: tag,
+        source: 'self-made',
+        path: dir,
+        categories: inferCategories(tag + ' ' + content, content),
+        description: content.split('\n').slice(0, 3).join('; ').slice(0, 100),
+      });
+    }
+  }
+
+  // 3. Match against knowledge base
+  for (const skill of results) {
+    const match = db.skills.find(s =>
+      s.id === skill.name || s.name === skill.name
+    );
+    if (match) skill.knownId = match.id;
+  }
+
+  return results;
+}
+
+const catKeywords: [string, string[]][] = [
+  ['aesthetic', ['审美', '设计', '视觉', '样式', 'css', 'ui', '前端', 'landing', 'hallmark']],
+  ['a11y', ['无障碍', '可访问', 'a11y', 'accessibility', 'alt']],
+  ['responsive', ['响应式', '移动', '手机', 'responsive']],
+  ['interaction', ['交互', 'hover', '点击', '按钮', '表单']],
+  ['code-quality', ['代码', '质量', '审查', 'review', 'graph']],
+  ['pm-tools', ['产品', '管理', 'pm', '竞品', '分析', '路线图', 'roadmap', '用户画像', '优先级']],
+  ['content', ['内容', '创作', '编辑', '视频', '写作', '剪辑', 'archify', 'video']],
+  ['data-analysis', ['数据', '分析', '指标', 'sql', '报表']],
+  ['infrastructure', ['联网', '搜索', 'office', '文档', '模型', '网关', 'wigolo', 'omniroute']],
+  ['knowledge', ['知识', '学习', '记忆', '蒸馏', 'cangjie']],
+  ['application', ['求职', '视频', '剪辑', '自动化']],
+  ['security', ['安全', '防护', '权限']],
+];
+
+function inferCategories(name: string, description: string): string[] {
+  const combined = (name + ' ' + description).toLowerCase();
+  const cats: string[] = [];
+  for (const [cat, keywords] of catKeywords) {
+    if (keywords.some(k => combined.includes(k.toLowerCase()))) cats.push(cat);
+  }
+  return cats.length > 0 ? cats : ['infrastructure'];
+}
+
+// ── Coverage analysis ──
+
+function analyzeCoverage(skills: DetectedSkill[]) {
+  const covered = new Set<string>();
+  const details: Record<string, { name: string; description: string }[]> = {};
+
+  for (const skill of skills) {
+    for (const cat of skill.categories) {
+      covered.add(cat);
+      if (!details[cat]) details[cat] = [];
+      details[cat].push({ name: skill.name, description: skill.description });
+    }
+  }
+
+  const allCats = Object.keys(categoryLabels);
+  const coveredCats = [...covered].filter(c => allCats.includes(c));
+  const missingCats = allCats.filter(c => !covered.has(c));
+
+  // Scenario matching
+  const scenarioMatches = [
+    { id: 'frontend-ui', label: '前端页面生成', needs: ['aesthetic', 'a11y', 'responsive', 'interaction'] },
+    { id: 'pm-work', label: '产品管理工作', needs: ['pm-tools'] },
+    { id: 'data-analysis', label: '数据分析', needs: ['data-analysis'] },
+    { id: 'content-creation', label: '内容创作', needs: ['content', 'knowledge'] },
+  ];
+
+  const scenarioResults = scenarioMatches.map(s => {
+    const has = s.needs.filter(n => covered.has(n));
+    const miss = s.needs.filter(n => !covered.has(n));
+    const coverage = s.needs.length > 0 ? Math.round((has.length / s.needs.length) * 100) : 0;
+    return { ...s, covered: has, missing: miss, coverage };
   });
 
-  scores.sort((a, b) => b.score - a.score);
-  return scores[0]?.score > 0 ? scores[0].scenario : null;
+  return { coveredCats, missingCats, details, scenarioResults };
 }
 
 // ── MCP Server ──
@@ -237,50 +199,28 @@ const server = new Server(
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
-      name: 'find_skills',
-      description: '搜索最适合你场景的 Skill。输入你想做的事，返回匹配度最高的 Skill 列表。',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: '描述你要做的事情，如"做一个SaaS着陆页"或"分析竞品"等' },
-          limit: { type: 'number', description: '返回数量限制（默认5）', default: 5 },
-        },
-        required: ['query'],
-      },
+      name: 'scan_skills',
+      description: '自动扫描你系统里已经安装的所有 Agent Skill（WorkBuddy、自建项目、GitHub 仓库），然后分析覆盖情况和缺口。',
+      inputSchema: { type: 'object', properties: {} },
     },
     {
-      name: 'suggest_combo',
-      description: '针对一个完整任务，推荐 Skill 组合方案。返回推荐的 Skill、组合方式、以及当前没有 Skill 覆盖的空白。',
+      name: 'suggest_additions',
+      description: '基于你已有的 Skill 和你想做的事，推荐补充哪些 Skill。',
       inputSchema: {
         type: 'object',
         properties: {
-          task: { type: 'string', description: '描述你的完整任务，如"我要用Claude Code做一个SaaS产品的着陆页"' },
-        },
-        required: ['task'],
-      },
-    },
-    {
-      name: 'list_skills',
-      description: '列出所有 Skill，可按分类筛选。',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          category: {
-            type: 'string',
-            description: '分类筛选（可选）：aesthetic / a11y / pm-tools / content / infrastructure / knowledge / application / security',
-          },
+          goal: { type: 'string', description: '你想做的事，比如"做前端页面"、"分析竞品"、"做数据分析"、留空则基于当前缺口推荐' },
         },
       },
     },
     {
-      name: 'identify_gaps',
-      description: '分析你的场景中缺少哪些 Skill 覆盖。如果你在做一个事但找不到合适的 Skill，告诉它，返回空白分析。',
+      name: 'list_known',
+      description: '查看当前 Skill 知识库中收录的已知 Skill（用于参考）。',
       inputSchema: {
         type: 'object',
         properties: {
-          task: { type: 'string', description: '描述你想做的事但没找到合适的 Skill' },
+          category: { type: 'string', description: '按分类筛选（可选）' },
         },
-        required: ['task'],
       },
     },
   ],
@@ -290,146 +230,128 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name: toolName, arguments: args } = request.params;
 
   switch (toolName) {
-    case 'find_skills': {
-      const query = String(args?.query || '');
-      const limit = Math.min(Number(args?.limit) || 5, 20);
-
-      const scored = db.skills
-        .map(s => ({ skill: s, score: matchSkill(query, s) }))
-        .filter(s => s.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit);
-
-      if (scored.length === 0) {
-        return {
-          content: [{ type: 'text', text: `没有找到匹配 "${query}" 的 Skill。这可能是一个还没有 Skill 覆盖的新场景。建议你描述更具体的任务来试试 suggest_combo 或 identify_gaps。` }],
-        };
-      }
-
-      const lines = [`# 搜索：${query}\n`, `找到 ${scored.length} 个匹配的 Skill：\n`];
-      for (const { skill, score } of scored) {
-        lines.push(`## ${skill.name}（匹配度 ${score}）`);
-        lines.push(`- ${skill.description}`);
-        lines.push(`- 分类：${skill.categories.join('、')}`);
-        lines.push(`- 平台：${skill.platform}`);
-        lines.push(`- 最适合：${skill.bestFor.slice(0, 2).join('；')}`);
-        lines.push(`- 仓库：${skill.repo}`);
-        lines.push('');
-      }
-
-      return { content: [{ type: 'text', text: lines.join('\n') }] };
-    }
-
-    case 'suggest_combo': {
-      const task = String(args?.task || '');
-
-      // Check scenarios
-      const matchedScenario = matchScenario(task);
-
-      // Also find individual skill matches
-      const skills = db.skills
-        .map(s => ({ skill: s, score: matchSkill(task, s) }))
-        .filter(s => s.score > 10)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 10);
-
-      const lines: string[] = [`# 任务："${task}"\n`];
-
-      if (matchedScenario) {
-        lines.push(`## 推荐方案：${matchedScenario.label}`);
-        lines.push(`> ${matchedScenario.description}\n`);
-        lines.push('### 推荐的 Skill 组合：');
-        lines.push('');
-        for (const combo of matchedScenario.combos) {
-          const skill = db.skills.find(s => s.id === combo.skillId);
-          const name = skill?.name || combo.skillId;
-          const phaseIcon = combo.phase === 'before' ? '准备阶段' : combo.phase === 'during' ? '执行阶段' : '检查阶段';
-          lines.push(`- **${name}**（${phaseIcon}）`);
-          lines.push(`  → ${combo.reason}`);
-        }
-        if (matchedScenario.gaps.length > 0) {
-          lines.push('');
-          lines.push('### 当前没有 Skill 覆盖的空白：');
-          for (const gap of matchedScenario.gaps) {
-            lines.push(`- ⚠️ ${gap}`);
-          }
-        }
-      } else {
-        lines.push('没有匹配到预设场景，基于 Skill 数据库分析：\n');
-      }
-
-      // Show individual matches that aren't already in the scenario
-      if (skills.length > 0) {
-        const usedIds = new Set(matchedScenario?.combos.map(c => c.skillId) || []);
-        const extras = skills.filter(s => !usedIds.has(s.skill.id));
-        if (extras.length > 0) {
-          lines.push('');
-          lines.push('### 其他可能相关的 Skill：');
-          for (const { skill, score } of extras.slice(0, 5)) {
-            lines.push(`- **${skill.name}**（匹配度 ${score}）：${skill.description}`);
-          }
-        }
-      }
-
-      return { content: [{ type: 'text', text: lines.join('\n') }] };
-    }
-
-    case 'list_skills': {
-      const category = args?.category as string | undefined;
-      let skills = db.skills;
-      if (category) {
-        skills = skills.filter(s => s.categories.includes(category));
-      }
+    case 'scan_skills': {
+      const skills = scanUserSkills();
+      const analysis = analyzeCoverage(skills);
 
       const lines: string[] = [];
-      if (category) {
-        const catLabel = db.categories[category] || category;
-        lines.push(`# Skill 列表：${catLabel}（${skills.length} 个）\n`);
-      } else {
-        lines.push(`# Skill 列表：共 ${skills.length} 个\n`);
+      lines.push('# Skill 环境扫描报告\n');
+      lines.push(`找到 ${skills.length} 个 Skill\n`);
+
+      // Group by source
+      lines.push('## 按来源分类\n');
+      for (const source of ['workbuddy', 'self-made'] as const) {
+        const group = skills.filter(s => s.source === source);
+        if (group.length === 0) continue;
+        const label = source === 'workbuddy' ? 'WorkBuddy 已安装' : '自建项目';
+        lines.push(`### ${label}（${group.length} 个）`);
+        for (const s of group) {
+          const known = s.knownId ? ` ✅ 已知（${s.knownId}）` : '';
+          lines.push(`- **${s.name}**${known} — ${s.description}`);
+        }
+        lines.push('');
       }
 
-      for (const skill of skills) {
-        lines.push(`### ${skill.name}`);
-        lines.push(`- ${skill.description}`);
-        lines.push(`- 平台：${skill.platform}`);
-        lines.push(`- 仓库：${skill.repo}`);
+      // Category coverage
+      lines.push('## 能力覆盖\n');
+      lines.push(`已覆盖：${analysis.coveredCats.map(c => categoryLabels[c] || c).join('、') || '无'}`);
+      if (analysis.missingCats.length > 0) {
+        lines.push(`未覆盖：${analysis.missingCats.map(c => categoryLabels[c] || c).join('、')}`);
+      }
+      lines.push('');
+
+      // Per-category detail
+      lines.push('## 按分类详情\n');
+      for (const cat of analysis.coveredCats) {
+        const label = categoryLabels[cat] || cat;
+        const items = analysis.details[cat]?.map(d => d.name).join('、') || '-';
+        lines.push(`- **${label}**：${items}`);
+      }
+      for (const cat of analysis.missingCats) {
+        lines.push(`- **${categoryLabels[cat] || cat}**：⚠️ 无覆盖`);
+      }
+      lines.push('');
+
+      // Scenario analysis
+      lines.push('## 场景匹配度\n');
+      for (const sc of analysis.scenarioResults) {
+        const icon = sc.coverage >= 75 ? '✅' : sc.coverage >= 40 ? '🟡' : '❌';
+        lines.push(`${icon} **${sc.label}**：${sc.coverage}% 覆盖`);
+        if (sc.missing.length > 0) {
+          lines.push(`   缺：${sc.missing.map(c => categoryLabels[c] || c).join('、')}`);
+        }
+      }
+      lines.push('');
+      lines.push('---\n运行 `suggest_additions` 查看推荐补充的 Skill。');
+
+      return { content: [{ type: 'text', text: lines.join('\n') }] };
+    }
+
+    case 'suggest_additions': {
+      const goal = (args?.goal as string) || '';
+      const skills = scanUserSkills();
+      const analysis = analyzeCoverage(skills);
+      const coveredCats = new Set(analysis.coveredCats);
+
+      const lines: string[] = [];
+      lines.push('# Skill 补充建议\n');
+
+      if (goal) {
+        lines.push(`基于目标"${goal}"分析：\n`);
+        const tokens = goal.toLowerCase();
+        const suggestions = db.skills.filter(s => {
+          const allText = (s.name + ' ' + s.description + ' ' + s.bestFor.join(' ')).toLowerCase();
+          return tokens.length > 3 && allText.includes(tokens.slice(0, 10));
+        });
+        if (suggestions.length > 0) {
+          for (const s of suggestions.slice(0, 5)) {
+            const already = skills.some(sk => sk.knownId === s.id);
+            lines.push(`${already ? '✅ 已有' : '📥 推荐'} **${s.name}**：${s.description}`);
+            lines.push(`  仓库：${s.repo}`);
+          }
+        } else {
+          lines.push('没有完全匹配目标场景的已知 Skill，以下是从能力缺口角度的建议：\n');
+        }
         lines.push('');
+      }
+
+      // Based on gaps
+      const missingSet = new Set(analysis.missingCats);
+      lines.push('## 基于能力缺口的推荐\n');
+      if (missingSet.size === 0) {
+        lines.push('✅ 你当前的能力覆盖已经很全面了。\n');
+      } else {
+        for (const cat of missingSet) {
+          const label = categoryLabels[cat] || cat;
+          const candidates = db.skills.filter(s => s.categories.includes(cat));
+          if (candidates.length === 0) continue;
+          lines.push(`### ${label}\n`);
+          for (const s of candidates.slice(0, 3)) {
+            const already = skills.some(sk => sk.knownId === s.id);
+            if (!already) {
+              lines.push(`- **${s.name}**：${s.description}`);
+              lines.push(`  → ${s.repo}`);
+            }
+          }
+          lines.push('');
+        }
       }
 
       return { content: [{ type: 'text', text: lines.join('\n') }] };
     }
 
-    case 'identify_gaps': {
-      const task = String(args?.task || '');
-      const matchedScenario = matchScenario(task);
-      const matchedSkills = db.skills
-        .map(s => ({ skill: s, score: matchSkill(task, s) }))
-        .filter(s => s.score > 5);
+    case 'list_known': {
+      const category = (args?.category as string) || '';
+      let filtered = db.skills;
+      if (category) filtered = filtered.filter(s => s.categories.includes(category));
 
-      const lines: string[] = [`# 空白分析："${task}"\n`];
-
-      if (matchedSkills.length === 0) {
-        lines.push('⚠️ **这个场景目前完全没有 Skill 覆盖。**');
+      const lines: string[] = [`# 已知 Skill 列表（共 ${filtered.length} 个）\n`];
+      for (const s of filtered) {
+        lines.push(`**${s.name}** — ${s.description}`);
+        lines.push(`  分类：${s.categories.map(c => categoryLabels[c] || c).join('、')}`);
+        lines.push(`  ${s.repo}`);
         lines.push('');
-        lines.push('这是一个全新的空白领域。如果要开发一个新 Skill 来填补，建议方向：');
-        lines.push(`- 基于 "${task}" 的核心需求设计 Skill 功能`);
-        lines.push('- 参考 skills-index.json 中类似分类的 Skill 结构');
-        lines.push('- 发布后提交 PR 到 Skill Compass 数据库');
-      } else {
-        lines.push('已有部分覆盖的 Skill：');
-        for (const { skill, score } of matchedSkills.slice(0, 5)) {
-          lines.push(`- ✅ ${skill.name}（匹配度 ${score}）：${skill.description}`);
-        }
-        if (matchedScenario?.gaps.length) {
-          lines.push('');
-          lines.push('仍缺少的：');
-          for (const gap of matchedScenario.gaps) {
-            lines.push(`- ⚠️ ${gap}`);
-          }
-        }
       }
-
       return { content: [{ type: 'text', text: lines.join('\n') }] };
     }
 
@@ -441,7 +363,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`Skill Compass MCP Server running (${db.skills.length} skills indexed)`);
+  console.error(`Skill Compass MCP Server running (${db.skills.length} skills in KB)`);
 }
 
 main().catch((err) => {
