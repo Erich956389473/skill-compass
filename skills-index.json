@@ -1,0 +1,309 @@
+{
+  "version": "1.0",
+  "updated": "2026-07-21",
+  "categories": {
+    "aesthetic": "审美与视觉质量",
+    "a11y": "可访问性",
+    "responsive": "响应式与移动端",
+    "interaction": "交互逻辑",
+    "code-quality": "代码质量与审查",
+    "pm-tools": "产品管理",
+    "content": "内容创作与编辑",
+    "data-analysis": "数据分析",
+    "infrastructure": "基础设施与工具扩展",
+    "knowledge": "知识蒸馏与学习",
+    "application": "AI应用层产品",
+    "security": "安全与合规"
+  },
+  "skills": [
+    {
+      "id": "fe-inspector-mcp",
+      "name": "FE Inspector",
+      "description": "前端质量检测MCP Server，覆盖审美/可访问性/响应式/交互四个维度",
+      "categories": ["aesthetic", "a11y", "responsive", "interaction"],
+      "bestFor": [
+        "AI生成的HTML页面需要做全面质量检查",
+        "前端代码提交前的自动化审查",
+        "需要同时检查视觉+交互+无障碍的场景"
+      ],
+      "notFor": [
+        "纯后端项目",
+        "不生成HTML的项目",
+        "只需要审美检查（这种情况用hallmark更轻量）"
+      ],
+      "platform": "MCP Server (任何支持MCP的Agent)",
+      "repo": "https://github.com/Erich956389473/fe-inspector-mcp",
+      "strength": "覆盖维度最广（4个维度20条规则），输出包含可执行的修复建议",
+      "weakness": "审美规则数量不如hallmark多（5条 vs 57条），侧重广度而非美学深度"
+    },
+    {
+      "id": "hallmark",
+      "name": "hallmark",
+      "description": "反AI模板味设计技能，检查AI生成代码中的典型审美问题",
+      "categories": ["aesthetic"],
+      "bestFor": [
+        "AI生成的前端页面需要去除AI模板味",
+        "想避免紫色渐变、过度圆角等典型AI设计模式",
+        "需要快速美化AI生成UI的场景"
+      ],
+      "notFor": [
+        "需要检查可访问性或交互逻辑的场景",
+        "后端或非UI项目",
+        "需要自动化CI/CD集成的场景（hallmark是被动Skill）"
+      ],
+      "platform": "Skill（Claude Code / Codex / Cursor）",
+      "repo": "https://github.com/Nutlope/hallmark",
+      "strength": "审美规则丰富（57条），社区活跃（周增9k+星），概念验证了AI前端质量需求",
+      "weakness": "只检查审美维度，不覆盖a11y/响应式/交互，且是被动调用"
+    },
+    {
+      "id": "pm-adaptive-skills",
+      "name": "PM自适应技能包",
+      "description": "中国PM自适应技能包，根据行业/阶段/规模自动调整分析框架",
+      "categories": ["pm-tools"],
+      "bestFor": [
+        "中国PM做竞品分析/用户画像/需求排期/路线图",
+        "需要根据产品场景（SaaS/电商/B2B等）自动匹配框架",
+        "数据PM或增长PM需要针对性分析指南"
+      ],
+      "notFor": [
+        "海外PM（内容全中文）",
+        "非产品管理场景",
+        "需要协作功能（目前是单用户版本）"
+      ],
+      "platform": "Skill（任何支持Markdown Skill的Agent）",
+      "repo": "https://github.com/Erich956389473/pm-adaptive-skills",
+      "strength": "覆盖5个高频PM场景，场景自适应（7行业×4阶段×3规模×4角色），中文",
+      "weakness": "新项目，社区尚未验证，技能数量不如pm-skills多（5个 vs 68个）"
+    },
+    {
+      "id": "pm-skills",
+      "name": "PM Skills Marketplace",
+      "description": "英文PM操作系统，68个技能+42个命令，覆盖PM全生命周期",
+      "categories": ["pm-tools"],
+      "bestFor": [
+        "海外PM需要结构化决策框架",
+        "需要端到端工作流（命令链式调用）",
+        "需要AI代码发布审计（pm-ai-shipping插件）"
+      ],
+      "notFor": [
+        "中国PM（全英文，方法论偏海外）",
+        "不需要Claude Code的用户（命令是Claude专属）",
+        "只需要单个技能的场景（68个太重了）"
+      ],
+      "platform": "Skill + Claude命令（Claude Code / Claude Cowork）",
+      "repo": "https://github.com/phuryn/pm-skills",
+      "strength": "68个技能覆盖全，命令链式调用体验好，pm-ai-shipping插件有前瞻性",
+      "weakness": "英文，命令Claude专属，模板固定无自适应，数据分析偏弱"
+    },
+    {
+      "id": "archify",
+      "name": "archify",
+      "description": "Agent Skill，用自然语言生成漂亮的架构图和工作流图",
+      "categories": ["content"],
+      "bestFor": [
+        "需要快速出架构图/时序图/数据流图",
+        "想把系统设计用图形化表达",
+        "需要导出PNG/JPEG/SVG多种格式"
+      ],
+      "notFor": [
+        "需要手绘风格或自定义设计的场景",
+        "不需要图表的文本类任务"
+      ],
+      "platform": "Agent Skill",
+      "repo": "https://github.com/tt-a1i/archify",
+      "strength": "支持多种图表类型和导出格式，深浅主题切换",
+      "weakness": "样式模板有限，复杂架构图表现力不足"
+    },
+    {
+      "id": "cangjie-skill",
+      "name": "仓颉技能蒸馏",
+      "description": "把书/长视频/播客等高价值内容蒸馏成Agent可执行的Skills",
+      "categories": ["knowledge"],
+      "bestFor": [
+        "想把一本书的核心方法论变成Agent可调用的技能",
+        "需要从长篇内容中提取可执行的知识",
+        "知识管理工作流"
+      ],
+      "notFor": [
+        "不需要深度知识提取的简单QA场景",
+        "对时效性要求极高的信息（蒸馏周期较长）"
+      ],
+      "platform": "Skill + Python脚本",
+      "repo": "https://github.com/kangarooking/cangjie-skill",
+      "strength": "7阶段流水线（RIA-TV++）质量高，已产出23个skill pack，概念新颖",
+      "weakness": "使用门槛高（7阶段流程复杂），输出质量依赖原始内容，验证标准不统一"
+    },
+    {
+      "id": "wigolo",
+      "name": "wigolo",
+      "description": "Agent免费联网MCP Server，搜索/抓取/爬取/研究，无需API Key",
+      "categories": ["infrastructure"],
+      "bestFor": [
+        "Agent需要联网搜索但不想付费（Firecrawl/Exa都需要API Key）",
+        "需要本地运行、隐私优先的网页抓取",
+        "需要多种联网能力（搜索、抓取、爬取、监控）"
+      ],
+      "notFor": [
+        "需要百万级大规模爬取的场景（性能有限）",
+        "需要商业级SLA保证的场景"
+      ],
+      "platform": "MCP Server",
+      "repo": "https://github.com/KnockOutEZ/wigolo",
+      "strength": "完全免费无需API Key，10个工具覆盖全面，本地优先隐私好",
+      "weakness": "初创项目（2.7k星），本地搜索结果质量不如商业搜索引擎"
+    },
+    {
+      "id": "officecli",
+      "name": "OfficeCLI",
+      "description": "AI Agent专用的Office文档CLI，无需安装Office即可读写docx/xlsx/pptx",
+      "categories": ["infrastructure"],
+      "bestFor": [
+        "Agent需要生成/编辑Word/Excel/PPT文档",
+        "需要批量处理办公文档的自动化场景",
+        "无Office环境下的文档操作"
+      ],
+      "notFor": [
+        "需要复杂排版和格式控制",
+        "需要宏/VBA支持"
+      ],
+      "platform": "CLI / MCP",
+      "repo": "https://github.com/iOfficeAI/OfficeCLI",
+      "strength": "单二进制文件免装Office，直接读写企业级文档格式，周增7k+星",
+      "weakness": "复杂格式兼容性有限，PPT支持仍在完善中"
+    },
+    {
+      "id": "code-review-graph",
+      "name": "code-review-graph",
+      "description": "本地优先的代码智能图，给AI编码工具做精准上下文",
+      "categories": ["code-quality"],
+      "bestFor": [
+        "大型项目代码审查（Token省82倍）",
+        "Agent需要精准理解代码变更影响范围",
+        "减少AI编码工具的Token消耗"
+      ],
+      "notFor": [
+        "小型项目（10个以下文件的代码库）",
+        "不需要代码审查的场景"
+      ],
+      "platform": "MCP Server + CLI",
+      "repo": "https://github.com/tirth8205/code-review-graph",
+      "strength": "Token节省82倍（最高528倍），日增1.8k星，爆炸式增长",
+      "weakness": "只分析代码静态结构，不分析交互逻辑和业务语义"
+    },
+    {
+      "id": "graphify",
+      "name": "graphify",
+      "description": "把任意代码/文档转成可查询知识图谱的Agent Skill",
+      "categories": ["code-quality", "knowledge"],
+      "bestFor": [
+        "需要把代码库变成可查询的知识图谱",
+        "文档知识管理和检索",
+        "Agent需要理解大型项目的整体结构"
+      ],
+      "notFor": [
+        "只需要代码审查的场景（code-review-graph更专注）",
+        "实时性要求高的场景（图谱构建需要时间）"
+      ],
+      "platform": "Agent Skill",
+      "repo": "https://github.com/Graphify-Labs/graphify",
+      "strength": "87k星，Agent Skill生态标杆，通用性强",
+      "weakness": "构建和维护知识图谱有学习成本"
+    },
+    {
+      "id": "video-use",
+      "name": "video-use",
+      "description": "用Claude Code剪辑视频，丢素材进文件夹聊几句就出片",
+      "categories": ["application", "content"],
+      "bestFor": [
+        "快速剪辑视频（去水词、调色、加字幕）",
+        "不需要打开Premiere/FCP的场景",
+        "内容创作者批量处理视频"
+      ],
+      "notFor": [
+        "专业级视频精编",
+        "复杂特效和多轨道合成"
+      ],
+      "platform": "Skill (Claude Code / Codex)",
+      "repo": "https://github.com/browser-use/video-use",
+      "strength": "文本驱动视频编辑（不喂帧喂文本），自评估循环保证质量",
+      "weakness": "仍依赖ffmpeg等外部工具，复杂剪辑场景有限"
+    },
+    {
+      "id": "ai-job-search",
+      "name": "AI Job Search",
+      "description": "AI驱动的求职自动化框架，搜索→评估→定制简历→面试准备全流程",
+      "categories": ["application"],
+      "bestFor": [
+        "正在求职需要批量化投递",
+        "需要定制化简历和求职信",
+        "想用AI做面试准备"
+      ],
+      "notFor": [
+        "中国市场（只支持海外求职门户）",
+        "不需要全流程自动化的简单求职"
+      ],
+      "platform": "Skill (Claude Code)",
+      "repo": "https://github.com/MadsLorentzen/ai-job-search",
+      "strength": "端到端覆盖（搜索→申请→面试→跟进），上周全GitHub增长第一（+13k星）",
+      "weakness": "只支持海外市场，Claude Code专属"
+    },
+    {
+      "id": "destructive-command-guard",
+      "name": "Destructive Command Guard",
+      "description": "Rust编写的守护程序，阻止Agent执行危险的git/shell命令",
+      "categories": ["security", "infrastructure"],
+      "bestFor": [
+        "生产环境中需要限制Agent的shell命令",
+        "防止Agent误执行危险的git操作",
+        "多Agent协作时的安全护栏"
+      ],
+      "notFor": [
+        "不需要shell权限限制的实验环境",
+        "完全离线或只读的Agent场景"
+      ],
+      "platform": "Rust守护程序（CLI）",
+      "repo": "https://github.com/Dicklesworthstone/destructive_command_guard",
+      "strength": "精确拦截危险命令，Rust原生高性能",
+      "weakness": "配置规则需要一定技术背景"
+    },
+    {
+      "id": "omniroute",
+      "name": "OmniRoute",
+      "description": "免费的AI模型聚合网关，一个端接入268+提供商、500+模型",
+      "categories": ["infrastructure"],
+      "bestFor": [
+        "需要同时使用多个AI模型的团队",
+        "想在Claude Code/Cursor/Codex之间共享模型资源",
+        "需要自动回退和负载均衡的API调用"
+      ],
+      "notFor": [
+        "只想用一个模型的简单场景",
+        "对延迟要求极高的实时场景"
+      ],
+      "platform": "API Gateway + Desktop App",
+      "repo": "https://github.com/diegosouzapw/OmniRoute",
+      "strength": "268+提供商，配额感知自动回退，日增1.1k星",
+      "weakness": "依赖第三方API稳定性，免费提供商可能有限流"
+    },
+    {
+      "id": "cognee",
+      "name": "cognee",
+      "description": "Agent开源AI记忆平台，跨会话持久化知识图谱记忆",
+      "categories": ["knowledge", "infrastructure"],
+      "bestFor": [
+        "需要Agent有长期记忆能力",
+        "跨会话知识管理和检索",
+        "构建自托管的Agent记忆系统"
+      ],
+      "notFor": [
+        "一次性的对话场景",
+        "不需要记忆能力的简单Agent"
+      ],
+      "platform": "Python框架",
+      "repo": "https://github.com/topoteretes/cognee",
+      "strength": "自托管知识图谱引擎，28k星，跨会话持久化",
+      "weakness": "部署和配置有一定复杂度"
+    }
+  ]
+}
