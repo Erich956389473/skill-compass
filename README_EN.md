@@ -2,68 +2,68 @@ English | [中文](./README.md)
 
 ---
 
-# Sk ill Compass
+# Skill Compass
 
-> Automatically scan all Agent S kills in your system, analyze what's covered  and what's missing
+> Automatically scan all Agent Skills in your system, analyze what's covered and what's missing
 
-[![GitHub](https://img.sh ields.io/badge/GitHub-100000?style=for-the-ba dge&logo=github&logoColor=white)](https://git hub.com/Erich956389473/skill-compass)
-[![Lice nse: MIT](https://img.shields.io/badge/Licens e-MIT-yellow.svg)](https://opensource.org/lic enses/MIT)
+[![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Erich956389473/skill-compass)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## ✨ Features
 
-- Auto-scan Agen t installation directories
-- 12-dimension cap ability analysis
-- Scenario matching evaluati on
+- Auto-scan Agent installation directories
+- 12-dimension capability analysis
+- Scenario matching evaluation
 - Bilingual support (CN/EN)
-## 🚀 Quick  Start
+
+## 🚀 Quick Start
 
 ### Installation
 
 ```bash
 # via npm
-np m install skill-compass
+npm install skill-compass
 
 # or clone the repo
- git clone https://github.com/Erich956389473/s kill-compass.git
+git clone https://github.com/Erich956389473/skill-compass.git
 cd skill-compass
-npm install 
+npm install
 ```
 
 ### Usage
 
 ```bash
 # Basic usage
-npx sk ill-compass
+npx skill-compass
 ```
 
 ## 📖 Documentation
 
-For d etailed documentation, please refer to the [d ocs](./docs) directory.
+For detailed documentation, please refer to the [docs](./docs) directory.
 
-## 🛠️ Developme nt
+## 🛠️ Development
 
 ```bash
 # Run tests
 npm test
 
-# Lint code 
+# Lint code
 npm run lint
 
 # Build
 npm run build
 ```
 
-##  📦 Tech Stack
+## 📦 Tech Stack
 
 - **Language:** TypeScript
--  **Package Manager:** npm
+- **Package Manager:** npm
 - **License:** MIT
- 
+
 ## 📄 License
 
-MIT License - see [LICENSE] (LICENSE)
+MIT License - see [LICENSE](LICENSE)
 
 ---
 
-**Author:** Erich Lee | [GitH ub](https://github.com/Erich956389473)
- 
+**Author:** Erich Lee | [GitHub](https://github.com/Erich956389473)
