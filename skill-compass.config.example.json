@@ -1,0 +1,15 @@
+{
+  "scanDirs": [
+    "skills",
+    ".agents",
+    "~/.agents"
+  ],
+  "excludeDirs": [
+    "node_modules",
+    ".git"
+  ],
+  "cacheEnabled": true,
+  "cacheTTL": 300000,
+  "outputFormat": "text",
+  "language": "zh"
+}

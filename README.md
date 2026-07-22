@@ -42,6 +42,23 @@ npx skill-compass-mcp
 | `scan_skills` | 自动扫描你系统里的所有 Skill，分析覆盖情况和缺口 |
 | `suggest_additions` | 基于你已有的 Skill 或你想做的事，推荐补充 |
 | `list_known` | 查看 Skill 知识库中收录的已知 Skill |
+| `clear_cache` | 清除扫描缓存，强制下次扫描重新执行 |
+| `export_report` | 导出扫描报告到文件 |
+
+### 配置
+
+创建 `skill-compass.config.json` 文件：
+
+```json
+{
+  "scanDirs": ["skills", ".agents", "~/.agents"],
+  "excludeDirs": ["node_modules", ".git"],
+  "cacheEnabled": true,
+  "cacheTTL": 300000,
+  "outputFormat": "text",
+  "language": "zh"
+}
+```
 
 ### 它能扫哪些目录
 

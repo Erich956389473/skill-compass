@@ -3,3 +3,7 @@ dist/
 *.tsbuildinfo
 .env
 .env.local
+
+# 本地迭代文件，不上传
+.claude-task.md
+CHANGELOG.md
