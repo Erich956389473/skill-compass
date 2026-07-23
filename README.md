@@ -57,7 +57,7 @@ npx skill-compass-mcp
 {
   "mcpServers": {
     "skill-compass": {
-      "command": "skill-compass-mcp",
+      "command": "skill-compass",
       "args": []
     }
   }
@@ -97,24 +97,31 @@ scan_skills
 
 ### 场景 2：获取补充建议
 
-```bash
-# 基于当前 Skill 推荐补充
-suggest_additions --scenario "web-development"
+MCP 工具通过 JSON-RPC 调用：
 
-# 输出建议：
-# 1. 添加 playwright-mcp (端到端测试)
-# 2. 添加 docker-mcp (容器部署)
-# 3. 添加 github-mcp (代码管理)
+```json
+{
+  "tool": "suggest_additions",
+  "arguments": {
+    "scenario": "web-development"
+  }
+}
 ```
+
+输出建议：
+1. 添加 playwright-mcp (端到端测试)
+2. 添加 docker-mcp (容器部署)
+3. 添加 github-mcp (代码管理)
 
 ### 场景 3：导出报告
 
-```bash
-# 导出 Markdown 报告
-export_report --format markdown
-
-# 导出 JSON 报告
-export_report --format json
+```json
+{
+  "tool": "export_report",
+  "arguments": {
+    "format": "markdown"
+  }
+}
 ```
 
 ## 🔧 配置选项
@@ -163,7 +170,7 @@ Skill Compass 使用 12 维度分析 Agent 技能：
 
 ### 环境要求
 
-- Node.js >= 16.0.0
+- Node.js >= 18.0.0
 - npm >= 8.0.0
 
 ### 开发命令
@@ -194,12 +201,10 @@ skill-compass/
 │   ├── index.ts           # 入口文件
 │   ├── scanner.ts         # 技能扫描器
 │   ├── analyzer.ts        # 12 维分析器
-│   ├── recommender.ts     # 智能推荐
 │   ├── cache.ts           # 缓存管理
-│   └── i18n/              # 国际化
-│       ├── index.ts
-│       ├── en.ts
-│       └── zh.ts
+│   ├── exporter.ts        # 报告导出
+│   ├── server.ts          # MCP 服务器
+│   └── types.ts           # 类型定义
 ├── test/                   # 测试文件
 ├── dist/                   # 编译输出
 ├── package.json
@@ -208,12 +213,12 @@ skill-compass/
 
 ## 📦 技术栈
 
-- **语言:** TypeScript 5.0
+- **语言:** TypeScript 5.7
 - **协议:** MCP (Model Context Protocol)
 - **运行时:** Node.js
 - **包管理:** npm
-- **测试框架:** Jest
-- **构建工具:** tsup
+- **测试框架:** tsx + console.assert
+- **构建工具:** tsc (TypeScript Compiler)
 - **License:** MIT
 
 ## 🤝 贡献指南
@@ -235,7 +240,7 @@ skill-compass/
 
 ## 📝 更新日志
 
-### v0.2.0 (2024-01-01)
+### v0.2.0 (2026-07-22)
 
 - ✨ 添加 12 维分析模型
 - ✨ 添加智能推荐功能
@@ -243,7 +248,7 @@ skill-compass/
 - 🐛 修复缓存问题
 - 📝 完善中英文文档
 
-### v0.1.0 (2024-01-01)
+### v0.1.0 (2026-07-20)
 
 - ✨ 初始版本发布
 - ✨ 基础扫描功能
